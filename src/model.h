@@ -17,26 +17,26 @@ public:
             blocks.push_back(Block(dims));
         }
     }
-    RWKV(std::string path)
+    RWKV(std::string path, c10::ScalarType dtype, c10::ScalarType runtimedtype)
     {
         torch::jit::script::Module w = torch::jit::load("/home/harrison/projects/rwkv-cpp/model.pt");
 
         head = torch::nn::Linear(w.attr("head.weight").toTensor().sizes()[1], w.attr("head.weight").toTensor().sizes()[0]);
-        head->weight = w.attr("head.weight").toTensor();
+        head->weight = w.attr("head.weight").toTensor().to(dtype);
         ln_in = torch::nn::LayerNorm(torch::nn::LayerNormOptions({w.attr("blocks.0.ln0.bias").toTensor().sizes()[0]}));
-        ln_in->bias = w.attr("blocks.0.ln0.bias").toTensor();
-        ln_in->weight = w.attr("blocks.0.ln0.weight").toTensor();
+        ln_in->bias = w.attr("blocks.0.ln0.bias").toTensor().to(runtimedtype);
+        ln_in->weight = w.attr("blocks.0.ln0.weight").toTensor().to(runtimedtype);
         ln_out = torch::nn::LayerNorm(torch::nn::LayerNormOptions({w.attr("ln_out.weight").toTensor().sizes()[0]}));
-        ln_out->weight = w.attr("ln_out.weight").toTensor();
-        ln_out->bias = w.attr("ln_out.bias").toTensor();
+        ln_out->weight = w.attr("ln_out.weight").toTensor().to(runtimedtype);
+        ln_out->bias = w.attr("ln_out.bias").toTensor().to(runtimedtype);
         emb = torch::nn::Embedding(w.attr("emb.weight").toTensor().sizes()[0], w.attr("emb.weight").toTensor().sizes()[1]);
-        emb->weight = w.attr("emb.weight").toTensor();
+        emb->weight = w.attr("emb.weight").toTensor().to(runtimedtype);
 
         for (int i = 0; i < 100; i++)
         {
             if (w.hasattr("blocks." + std::to_string(i) + ".ln1.bias"))
             {
-                blocks.push_back(Block(i, w));
+                blocks.push_back(Block(i, w, dtype, runtimedtype));
             }
             else
             {
@@ -44,7 +44,7 @@ public:
             }
         }
 
-        emptyState = w.attr("emptyState").toTensor();
+        emptyState = w.attr("emptyState").toTensor().to(runtimedtype);
     }
     torch::Tensor forward(torch::Tensor x, torch::Tensor state)
     {

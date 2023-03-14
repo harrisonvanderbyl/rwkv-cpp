@@ -1,3 +1,5 @@
+from tkinter import filedialog
+import tkinter as tk
 import torch
 
 
@@ -18,9 +20,14 @@ class Container(torch.nn.Module):
         setattr(self, "emptyState", emptyState)
 
 
-my_values = torch.load("model.pth", map_location="cpu")
+# open file  selector, only show  .pth files
+path = filedialog.askopenfilename(
+    initialdir="./", title="Select file", filetypes=(("pth files", "*.pth"), ("all files", "*.*")))
+my_values = torch.load(path, map_location="cpu")
 
 # Save arbitrary values supported by TorchScript
 # https://pytorch.org/docs/master/jit.html#supported-type
 container = torch.jit.script(Container(my_values))
-container.save("model.pt")
+output_path = filedialog.asksaveasfilename(
+    initialdir="./", title="Select file", filetypes=(("pt files", "*.pt"), ("all files", "*.*")))
+container.save("output.pt")

@@ -212,6 +212,8 @@ private:
     torch::Tensor atttime_mix_r;
     torch::Tensor ffntime_mix_k;
     torch::Tensor ffntime_mix_r;
+    c10::ScalarType dtype_ = torch::kFloat32;
+    c10::ScalarType runtimedtype_ = torch::kFloat64;
 
 public:
     Block(int dims)
@@ -235,7 +237,7 @@ public:
         ffntime_mix_r = torch::zeros({dims});
     }
 
-    Block(int i, torch::jit::script::Module w)
+    Block(int i, torch::jit::script::Module w, c10::ScalarType dtype, c10::ScalarType runtimedtype)
 
     {
         int dims = w.attr("blocks." + std::to_string(i) + ".att.key.weight").toTensor().size(0);
@@ -248,25 +250,28 @@ public:
         ffnkey = torch::nn::Linear(dims, dims * 4);
         ffnvalue = torch::nn::Linear(dims * 4, dims);
         ffnreceptance = torch::nn::Linear(dims, dims);
-        time_first = w.attr("blocks." + std::to_string(i) + ".att.time_first").toTensor().squeeze();
-        time_decay = w.attr("blocks." + std::to_string(i) + ".att.time_decay").toTensor().squeeze().exp().neg();
-        atttime_mix_k = w.attr("blocks." + std::to_string(i) + ".att.time_mix_k").toTensor().squeeze();
-        atttime_mix_v = w.attr("blocks." + std::to_string(i) + ".att.time_mix_v").toTensor().squeeze();
-        atttime_mix_r = w.attr("blocks." + std::to_string(i) + ".att.time_mix_r").toTensor().squeeze();
-        ffntime_mix_k = w.attr("blocks." + std::to_string(i) + ".ffn.time_mix_k").toTensor().squeeze();
-        ffntime_mix_r = w.attr("blocks." + std::to_string(i) + ".ffn.time_mix_r").toTensor().squeeze();
+        time_first = w.attr("blocks." + std::to_string(i) + ".att.time_first").toTensor().squeeze().to(runtimedtype);
+        time_decay = w.attr("blocks." + std::to_string(i) + ".att.time_decay").toTensor().squeeze().exp().neg().to(runtimedtype);
+        atttime_mix_k = w.attr("blocks." + std::to_string(i) + ".att.time_mix_k").toTensor().squeeze().to(runtimedtype);
+        atttime_mix_v = w.attr("blocks." + std::to_string(i) + ".att.time_mix_v").toTensor().squeeze().to(runtimedtype);
+        atttime_mix_r = w.attr("blocks." + std::to_string(i) + ".att.time_mix_r").toTensor().squeeze().to(runtimedtype);
+        ffntime_mix_k = w.attr("blocks." + std::to_string(i) + ".ffn.time_mix_k").toTensor().squeeze().to(runtimedtype);
+        ffntime_mix_r = w.attr("blocks." + std::to_string(i) + ".ffn.time_mix_r").toTensor().squeeze().to(runtimedtype);
 
-        ln1->weight = w.attr("blocks." + std::to_string(i) + ".ln1.weight").toTensor().squeeze();
-        ln1->bias = w.attr("blocks." + std::to_string(i) + ".ln1.bias").toTensor().squeeze();
-        ln2->weight = w.attr("blocks." + std::to_string(i) + ".ln2.weight").toTensor().squeeze();
-        ln2->bias = w.attr("blocks." + std::to_string(i) + ".ln2.bias").toTensor().squeeze();
-        attkey->weight = w.attr("blocks." + std::to_string(i) + ".att.key.weight").toTensor().squeeze();
-        attvalue->weight = w.attr("blocks." + std::to_string(i) + ".att.value.weight").toTensor().squeeze();
-        attreceptance->weight = w.attr("blocks." + std::to_string(i) + ".att.receptance.weight").toTensor().squeeze();
-        attout->weight = w.attr("blocks." + std::to_string(i) + ".att.output.weight").toTensor().squeeze();
-        ffnkey->weight = w.attr("blocks." + std::to_string(i) + ".ffn.key.weight").toTensor().squeeze();
-        ffnvalue->weight = w.attr("blocks." + std::to_string(i) + ".ffn.value.weight").toTensor().squeeze();
-        ffnreceptance->weight = w.attr("blocks." + std::to_string(i) + ".ffn.receptance.weight").toTensor().squeeze();
+        ln1->weight = w.attr("blocks." + std::to_string(i) + ".ln1.weight").toTensor().squeeze().to(runtimedtype);
+        ln1->bias = w.attr("blocks." + std::to_string(i) + ".ln1.bias").toTensor().squeeze().to(runtimedtype);
+        ln2->weight = w.attr("blocks." + std::to_string(i) + ".ln2.weight").toTensor().squeeze().to(runtimedtype);
+        ln2->bias = w.attr("blocks." + std::to_string(i) + ".ln2.bias").toTensor().squeeze().to(runtimedtype);
+        attkey->weight = w.attr("blocks." + std::to_string(i) + ".att.key.weight").toTensor().squeeze().to(dtype);
+        attvalue->weight = w.attr("blocks." + std::to_string(i) + ".att.value.weight").toTensor().squeeze().to(dtype);
+        attreceptance->weight = w.attr("blocks." + std::to_string(i) + ".att.receptance.weight").toTensor().squeeze().to(dtype);
+        attout->weight = w.attr("blocks." + std::to_string(i) + ".att.output.weight").toTensor().squeeze().to(dtype);
+        ffnkey->weight = w.attr("blocks." + std::to_string(i) + ".ffn.key.weight").toTensor().squeeze().to(dtype);
+        ffnvalue->weight = w.attr("blocks." + std::to_string(i) + ".ffn.value.weight").toTensor().squeeze().to(dtype);
+        ffnreceptance->weight = w.attr("blocks." + std::to_string(i) + ".ffn.receptance.weight").toTensor().squeeze().to(dtype);
+
+        dtype_ = dtype;
+        runtimedtype_ = runtimedtype;
     }
 
     std::vector<torch::Tensor> processLayer(torch::Tensor k, torch::Tensor v, std::vector<torch::Tensor> rz, torch::Tensor state)
@@ -316,27 +321,28 @@ public:
         tc[0] = state[0];
         state[0] = rmc;
 
-        torch::Tensor km = torch::lerp(tc, xy, atttime_mix_k);
+        torch::Tensor km = torch::lerp(tc, xy, atttime_mix_k).to(dtype_);
 
-        torch::Tensor k = attkey(km);
+        torch::Tensor k = attkey(km).to(runtimedtype_);
 
-        torch::Tensor vm = torch::lerp(tc, xy, atttime_mix_v);
+        torch::Tensor vm = torch::lerp(tc, xy, atttime_mix_v).to(dtype_);
 
-        torch::Tensor v = attvalue(vm);
+        torch::Tensor v = attvalue(vm).to(runtimedtype_);
 
-        torch::Tensor rm = torch::lerp(tc, xy, atttime_mix_r);
+        torch::Tensor rm = torch::lerp(tc, xy, atttime_mix_r).to(dtype_);
 
-        torch::Tensor r = attreceptance(rm).sigmoid();
+        torch::Tensor r = attreceptance(rm).to(runtimedtype_).sigmoid();
 
-        std::vector<torch::Tensor> rz;
+        std::vector<torch::Tensor>
+            rz;
 
         for (int i = 0; i < k.size(0); i++)
         {
             rz = processLayer(k[i].squeeze(), v[i].squeeze(), rz, state);
         }
 
-        torch::Tensor rz2 = torch::stack(rz);
-        torch::Tensor rzz = attout(rz2 * r) + x;
+        torch::Tensor rz2 = torch::stack(rz).to(dtype_);
+        torch::Tensor rzz = x + attout(rz2 * r).to(runtimedtype_);
 
         torch::Tensor ddd = ln2(rzz);
 
@@ -345,15 +351,15 @@ public:
         rc[0] = state[1];
         state[1] = dc;
 
-        torch::Tensor kmr = torch::lerp(rc, ddd, ffntime_mix_k);
+        torch::Tensor kmr = torch::lerp(rc, ddd, ffntime_mix_k).to(dtype_);
 
         torch::Tensor kf = ffnkey(kmr).relu();
 
-        torch::Tensor rmr = torch::lerp(rc, ddd, ffntime_mix_r);
+        torch::Tensor rmr = torch::lerp(rc, ddd, ffntime_mix_r).to(dtype_);
 
-        torch::Tensor rf = ffnreceptance(rmr).sigmoid();
+        torch::Tensor rf = ffnreceptance(rmr).to(runtimedtype_).sigmoid();
 
-        torch::Tensor rvm = ffnvalue(torch::square(kf));
+        torch::Tensor rvm = ffnvalue(torch::square(kf)).to(runtimedtype_);
 
         torch::Tensor out = rvm * rf + rzz;
 
