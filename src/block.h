@@ -316,8 +316,6 @@ public:
 
         torch::Tensor tc = xy.roll(1, 0);
         torch::Tensor rmc = xy[-1];
-        std::cout << tc.sizes() << std::endl;
-        std::cout << state.sizes() << std::endl;
         tc[0] = state[0];
         state[0] = rmc;
 
