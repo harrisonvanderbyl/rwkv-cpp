@@ -1,0 +1,9 @@
+*.pth
+*.pt
+CMakeFiles
+libtorch
+CMakeCache.txt
+cmake_install.cmake
+*.zip
+RWKVCPP
+.vscode
