@@ -1,0 +1,1 @@
+LD_LIBRARY_PATH=./lib ./RWKVCPP $1 $2 $3 

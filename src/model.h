@@ -19,7 +19,7 @@ public:
     }
     RWKV(std::string path, c10::ScalarType dtype, c10::ScalarType runtimedtype)
     {
-        torch::jit::script::Module w = torch::jit::load("/home/harrison/projects/rwkv-cpp/model.pt");
+        torch::jit::script::Module w = torch::jit::load(path);
 
         head = torch::nn::Linear(w.attr("head.weight").toTensor().sizes()[1], w.attr("head.weight").toTensor().sizes()[0]);
         head->weight = w.attr("head.weight").toTensor().to(dtype);

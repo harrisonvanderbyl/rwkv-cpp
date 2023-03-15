@@ -8,6 +8,12 @@ add_executable(RWKVCPP Main.cpp)
 target_link_libraries(RWKVCPP "${TORCH_LIBRARIES}")
 set_property(TARGET RWKVCPP PROPERTY CXX_STANDARD 14)
 
+# make executable check relative ./lib for DLLs
+set_target_properties(RWKVCPP PROPERTIES
+                      INSTALL_RPATH "$ORIGIN/lib")
+
+
+
 # The following code block is suggested to be used on Windows.
 # According to https://github.com/pytorch/pytorch/issues/25457,
 # the DLLs need to be copied to avoid memory errors.
