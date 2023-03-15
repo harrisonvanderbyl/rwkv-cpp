@@ -339,8 +339,8 @@ public:
             rz = processLayer(k[i].squeeze(), v[i].squeeze(), rz, state);
         }
 
-        torch::Tensor rz2 = torch::stack(rz).to(dtype_);
-        torch::Tensor rzz = x + attout(rz2 * r).to(runtimedtype_);
+        torch::Tensor rz2 = (torch::stack(rz) * r).to(dtype_);
+        torch::Tensor rzz = x + attout(rz2).to(runtimedtype_);
 
         torch::Tensor ddd = ln2(rzz);
 

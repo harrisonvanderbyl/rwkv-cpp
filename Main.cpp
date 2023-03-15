@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
         std::cout << "No runtime dtype specified, defaulting to float32" << std::endl;
     }
 
-    if (dtype != "float32" && dtype != "float64" && dtype != "bloat16")
+    if (dtype != "float32" && dtype != "float64" && dtype != "bloat16" && dtype != "float16")
     {
         std::cout << "Invalid dtype specified, defaulting to float32" << std::endl;
         dtype = "float32";
@@ -73,7 +73,24 @@ int main(int argc, char *argv[])
         torch_runtimedtype = torch::kBFloat16;
     }
     std::cout << "dtype: " << dtype << std::endl;
+    torch::NoGradGuard no_grad;
     RWKV rwkv(path, torch_dtype, torch_runtimedtype);
 
-    std::cout << rwkv.forward(torch::zeros(2).to(torch::kInt32), rwkv.emptyState) << std::endl;
+    // optimize
+    rwkv.eval();
+
+    for (int i = 0; i < 20; i++)
+    {
+        rwkv.forward(torch::zeros(1).to(torch::kInt32), rwkv.emptyState);
+    }
+
+    auto time = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < 100; i++)
+    {
+        rwkv.forward(torch::zeros(1).to(torch::kInt32), rwkv.emptyState);
+    }
+
+    auto time2 = std::chrono::high_resolution_clock::now();
+    std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(time2 - time).count() << "ms / 100 tokens" << std::endl;
 }

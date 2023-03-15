@@ -45,19 +45,20 @@ public:
         }
 
         emptyState = w.attr("emptyState").toTensor().to(runtimedtype);
+        dtype_ = dtype;
     }
     torch::Tensor forward(torch::Tensor x, torch::Tensor state)
     {
         x = emb(x);
         x = ln_in(x);
-        std::cout << state.sizes() << std::endl;
+
         for (int i = 0; i < blocks.size(); i++)
         {
             torch::Tensor rstate;
             std::tie(x, rstate) = blocks[i].forward(x, state[i]);
             state[i] = rstate;
         }
-        x = ln_out(x);
+        x = ln_out(x).to(dtype_);
         torch::Tensor outx = head(x);
         return outx[-1], state;
     }
@@ -71,4 +72,5 @@ private:
     torch::nn::LayerNorm ln_in = nullptr;
 
     std::vector<Block> blocks = {};
+    c10::ScalarType dtype_;
 };
