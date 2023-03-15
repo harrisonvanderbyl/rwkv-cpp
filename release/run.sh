@@ -1,1 +1,1 @@
-LD_LIBRARY_PATH=./lib ./RWKVCPP $1 $2 $3 
+LD_LIBRARY_PATH=./lib ./RWKVCPP $(python3 -c "from tkinter import filedialog; print(filedialog.askopenfilename(initialdir='./', title='Select file', filetypes=(('pt files', '*.pt'), ('all files', '*.*'))))") $1 $2 
