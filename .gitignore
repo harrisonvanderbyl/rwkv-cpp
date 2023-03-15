@@ -7,3 +7,4 @@ cmake_install.cmake
 *.zip
 RWKVCPP
 .vscode
+Makefile
