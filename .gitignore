@@ -9,3 +9,5 @@ RWKVCPP
 .vscode
 Makefile
 lib
+*.o
+*.rwkv

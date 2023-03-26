@@ -1,17 +1,28 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(RWKVCPP)
 
+find_package(CUDAToolkit)
+# set cmake cuda architectures
+set(CMAKE_CUDA_ARCHITECTURES 61 70 75 80)
+
+# find and add python3
+find_package(Python3 COMPONENTS Interpreter Development)
+
+# link python 
+include_directories(${Python3_INCLUDE_DIRS})
+link_libraries(${Python3_LIBRARIES})
+
+
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
-add_executable(RWKVCPP Main.cpp)
+add_executable(RWKVCPP Main.cpp operators.o operators32.o)
 target_link_libraries(RWKVCPP "${TORCH_LIBRARIES}")
 set_property(TARGET RWKVCPP PROPERTY CXX_STANDARD 14)
 
 # make executable check relative ./lib for DLLs
 set_target_properties(RWKVCPP PROPERTIES
                       INSTALL_RPATH "$ORIGIN/lib")
-
 
 
 # The following code block is suggested to be used on Windows.
