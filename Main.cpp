@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     auto RWKV = torch::jit::load(path);
 
     auto emptyState = torch::zeros({32,5,4096}).to(torch::kFloat64).cuda();
-   
+    
     auto B = torch::zeros(1).to(torch::kInt32);
 
     auto tokenizer = Tokenizer("20B_tokenizer.json");
@@ -25,29 +25,53 @@ int main(int argc, char *argv[])
     cout << tokenizer.decodeTokens({12092, 3645}) << endl;
 
 	// load tokenizer
-
-	
-    std::vector<int> moutputs = {};
+    std::string beforecontext = std::string("Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n");
+    std::string instructionContext = std::string("###Instruction:\nplease write a long story using information and themes provided that is at least 100 words long. You can use markdown to format your text.\n\n");
+    
+    
+    while (1){
+    auto baseState = emptyState.clone();
+   
+    std::cout << "Enter Story Details: ";
+    std::string inp = "";
+    std::getline(std::cin, inp);
 
     
-
-    auto time = std::chrono::high_resolution_clock::now();
-
-    for (int i = 0; i < 100; i++)
+    std::string requestContext = std::string("###Input:\n" + inp + "\n\n");
+    std::string aftercontext = std::string("\n###Response:\n");
+	std::vector<int> context = tokenizer.encodeTokens(beforecontext + instructionContext + requestContext + aftercontext);
+    at::Tensor tok;
+    for (int i = 0; i < context.size(); i++)
     {
-        auto out = RWKV.forward(std::vector<c10::IValue>{torch::reshape(B,{1}), emptyState});
-        B = out.toTuple()->elements()[0].toTensor();
-        emptyState = out.toTuple()->elements()[1].toTensor();
+        tok = torch::tensor({context[i]}).to(torch::kInt32);
+        auto out = RWKV.forward(std::vector<c10::IValue>{tok, baseState});
+        baseState = out.toTuple()->elements()[1].toTensor();
 
-        B = torch::argmax(B.cpu());
-        moutputs.push_back(B.item<int>());
     }
     
-    cout << tokenizer.decodeTokens(moutputs) << endl;
-    cout << moutputs << endl;
+    auto currentState = baseState.clone();
 
+    std::vector<int> moutputs = {tok.item<int>()};
 
-    auto time2 = std::chrono::high_resolution_clock::now();
-    std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(time2 - time).count() << "ms / 100 tokens" << std::endl;
+    
+
+    for (int i = 0; i < 500; i++)
+    {
+        auto out = RWKV.forward(std::vector<c10::IValue>{torch::reshape(tok,{1}), currentState});
+        tok = out.toTuple()->elements()[0].toTensor();
+        currentState = out.toTuple()->elements()[1].toTensor();
+
+        tok = torch::argmax(tok.cpu());
+        moutputs.push_back(tok.item<int>());
+        if (tok.item<int>() == 0)
+        {
+            break;
+        }
+        cout << tokenizer.decodeTokens({tok.item<int>()});
+    }
+    
+    
+
+    }
 
 }
