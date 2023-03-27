@@ -12,9 +12,13 @@ find_package(Python3 COMPONENTS Interpreter Development)
 include_directories(${Python3_INCLUDE_DIRS})
 link_libraries(${Python3_LIBRARIES})
 
+# add libs in ./libtorch/lib
+link_directories(libtorch/lib)
+
 
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
 
 add_executable(RWKVCPP Main.cpp operators.o operators32.o)
 target_link_libraries(RWKVCPP "${TORCH_LIBRARIES}")
