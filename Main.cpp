@@ -60,8 +60,21 @@ int main(int argc, char *argv[])
         auto out = RWKV.forward(std::vector<c10::IValue>{torch::reshape(tok,{1}), currentState});
         tok = out.toTuple()->elements()[0].toTensor();
         currentState = out.toTuple()->elements()[1].toTensor();
+        float temp = 0.9;
+        float top_p = 0.9;
+        auto probs = torch::softmax(tok, -1);
+        torch::Tensor sorted_probs;
+        std::tie(sorted_probs, std::ignore) = torch::sort(probs, -1, true);
+        auto cumulative_probs = torch::cumsum(sorted_probs, -1);
+        cumulative_probs = cumulative_probs.masked_fill(cumulative_probs < top_p, 0.0);
+        auto cutoff = sorted_probs[torch::argmax(cumulative_probs)];
+        probs = probs.masked_fill(probs < cutoff, 0.0);
+        probs = torch::pow(probs, 1.0 / temp);
+        probs = probs / torch::sum(probs, -1);
+        tok = torch::multinomial(probs, 1);
+           
 
-        tok = torch::argmax(tok.cpu());
+        tok = tok.cpu();
         moutputs.push_back(tok.item<int>());
         if (tok.item<int>() == 0)
         {
