@@ -25,10 +25,13 @@ then
     cp "./libtorch/lib/libtorch.so" "./release/lib"
 fi
 
-# zip release
-cd release
-zip -r release.zip ./*
-cd ..
+# zip release, only include installdeps.sh if not full bundle
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    zip -r ./release/release.zip ./release/RWKVCPP "./release/20B_tokenizer.json" "./release/run.sh" "./release/lib/*" "./release/rwkv-7B-alpaca-2-1-2.rwkv"
+else
+    zip -r ./release/release.zip ./release/RWKVCPP "./release/20B_tokenizer.json" "./release/run.sh" "./release/installdeps.sh"
+fi
 
 # copy zip to bin folder
 cp ./release/release.zip ./bin
